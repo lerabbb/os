@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
+
+#define SWAP_PERIOD 1000000
 
 int init(char *str, List **head){
     (*head) = (List*)malloc(sizeof(List));
@@ -96,6 +99,7 @@ void sortList(List **head){
     i=(*head);
     pthread_mutex_unlock(&(*head)->mutex);
 
+    printf("\nStart sorting:\n");
     while(i){
         pthread_mutex_lock(&(*head)->mutex);
         prev=(*head);
@@ -103,13 +107,19 @@ void sortList(List **head){
         pthread_mutex_unlock(&(*head)->mutex);
 
         while(j != i && j!=NULL && j->next!=NULL){
+            usleep(SWAP_PERIOD);
+            printList(head);
+            
             if(strcmp(j->buf, j->next->buf)>0){
                 swap(head, prev, j, j->next);
             }
+
             prev = j;
             j = j->next;
         }
 
         i=i->next;
     }
+
+    printf("Stop sorting\n");
 }

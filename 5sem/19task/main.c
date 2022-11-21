@@ -8,6 +8,7 @@
 #define PERIOD 5000000
 
 List *head=NULL;
+pthread_mutex_t mutex;
 
 void *child_func(void *args){
     while(1) {
@@ -84,5 +85,3 @@ int main() {
 
     return 0;
 }
-
-

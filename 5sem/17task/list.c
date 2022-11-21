@@ -51,16 +51,6 @@ void swap(List **head, List *prev, List *a, List *b){
 }
 
 int sortList(List **head){
-    /*for(List* i = (*head); i!=NULL; i = i->next){
-        for(List* j = i->next; j; j = j->next){
-            if(strcmp(i->buf, j->buf) > 0){
-                if(swap(head, &i, &j))
-                    return 1;
-            }
-        }
-    }
-    return 0;*/
-
     List *prev=NULL;
     for(List *i = (*head); i; i = i->next){
         prev=(*head);

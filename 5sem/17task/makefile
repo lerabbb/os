@@ -1,2 +1,2 @@
-lab17:
-	gcc main.c list.c -o lab17 -pthread
+all : a.out
+	gcc main.c list.c -pthread

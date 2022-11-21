@@ -9,7 +9,6 @@
 typedef struct List{
     char *buf;
     struct List *next;
-    struct List *prev;
 } List;
 
 void push(char *str, List **head);

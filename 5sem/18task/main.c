@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include <unistd.h>
 #include <string.h>
 #include "list.h"
@@ -7,41 +8,31 @@
 #define PERIOD 5000000
 
 List *head=NULL;
-
-void routine(void *arg){
-    List *temp=head;
-    while(temp){
-        pthread_mutex_unlock(&temp->mutex);
-        temp=temp->next;
-    }
-}
+pthread_mutex_t mutex;
 
 void *child_func(void *args){
-    pthread_cleanup_push(routine, NULL);
-    int err;
     while(1) {
         usleep(PERIOD);
         sortList(&head);
-        printf("list sorted by child\n");
     }
-    pthread_cleanup_pop(1);
 }
 
 void parent_func(){
     char* buf = (char*) malloc(sizeof(char)*MAX_STR_LEN);
+
+    //initialize list
     if(fgets(buf, MAX_BUF, stdin) == NULL){
-        printf("quit\n");
+        perror("Fail while reading text");
         free(buf);
         return;
     }
-    if(init(&head,buf)){
-        printf("quit\n");
+    if(strcmp(buf, "end\n")==0){
         free(buf);
         return;
     }
     buf[strcspn(buf, "\n")] = 0;
-    if(strcmp(buf, "end")==0){
-        printf("quit\n");
+    if(init(buf, &head)){
+        perror("Fail while initializing list");
         free(buf);
         return;
     }
@@ -50,30 +41,28 @@ void parent_func(){
         if(fgets(buf, MAX_BUF, stdin) == NULL){
             break;
         }
-        buf[strcspn(buf, "\n")] = 0;
-        if(strcmp(buf, "end")==0){
+        if(strcmp(buf, "end\n")==0){
             break;
         }
+        buf[strcspn(buf, "\n")] = 0;
         if(strcmp(buf, "")==0) {
-            if(printList(&head)){
-                break;
-            }
+            printf("\n");
+            printList(&head);
         }
         else {
             strcat(buf, "\0");
+
             if(push(buf, &head)){
+                perror("Fail while pushing node");
                 break;
             }
-            printf("new node added\n");
         }
     }
-    printf("quit\n");
     free(buf);
 }
 
 int main() {
     pthread_t tid;
-
     if(pthread_create(&tid, NULL, child_func, NULL)){
         perror("thread not created");
         return -1;
@@ -85,11 +74,8 @@ int main() {
         perror("child thread not cancelled");
         return -1;
     }
-    printf("child cancelled\n");
 
-    if(printList(&head)){
-        return 1;
-    }
+    printList(&head);
     while(head){
         if(pop(&head)){
             perror("fail while list clearing");
@@ -99,3 +85,5 @@ int main() {
 
     return 0;
 }
+
+

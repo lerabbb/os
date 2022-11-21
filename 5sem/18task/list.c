@@ -2,36 +2,34 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "mutex.h"
 
-int init(List **head, char *str){
-    int err;
-    (*head) = (List*) malloc(sizeof(List));
+int init(char *str, List **head){
+    (*head) = (List*)malloc(sizeof(List));
 
-    if((err=init_mutex(&(*head)->mutex))){
-        return err;
+    if(pthread_mutex_init(&(*head)->mutex, NULL)){
+        return 1;
     }
 
     (*head)->buf = (char*)malloc(sizeof(char)*MAX_BUF);
     strcpy((*head)->buf, str);
-    (*head)->next = NULL;
+    (*head)->next=NULL;
     return 0;
 }
 
 int push(char *str, List **head){
     List *temp = (List*) malloc(sizeof(List));
-    int err;
-    if((err=init_mutex(&(*head)->mutex))){
-        return err;
+
+    if(pthread_mutex_init(&temp->mutex, NULL)){
+        return 1;
     }
 
     temp->buf = (char*)malloc(sizeof(char)*MAX_BUF);
     strcpy(temp->buf, str);
 
-    lock(&(*head)->mutex);
+    pthread_mutex_lock(&(*head)->mutex);
     temp->next = (*head);
     (*head) = temp;
-    unlock(&(*head)->next->mutex);
+    pthread_mutex_unlock(&(*head)->next->mutex);
     return 0;
 }
 
@@ -43,18 +41,17 @@ int pop(List **head){
 
     temp = (*head);
     (*head)=(*head)->next;
-    destroy(&temp->mutex);
+    pthread_mutex_destroy(&temp->mutex);
     free(temp->buf);
     free(temp);
     return 0;
 }
 
-int printList(List **head){
-    lock(&(*head)->mutex);
-    printf("head locked to print list\n");
-    List *temp = (*head);
-    unlock(&(*head)->mutex);
-    printf("head unlocked to print list\n");
+void printList(List **head){
+    List *temp = NULL;
+    pthread_mutex_lock(&(*head)->mutex);
+    temp = (*head);
+    pthread_mutex_unlock(&(*head)->mutex);
 
     printf("List: ");
     while(temp){
@@ -62,60 +59,59 @@ int printList(List **head){
         temp=temp->next;
     }
     printf("\n");
-    return 0;
 }
 
-void swap(List **prev, List **a, List **b) {
+void swap(List **head, List *prev, List *a, List *b){
     List *temp = NULL;
-    printf("\ndata to swap: %s %s\n", (*a)->buf, (*b)->buf);
 
-    if ((*a) == (*prev)) {
-        lock(&(*a)->mutex);
-        lock(&(*b)->mutex);
-        temp = (*b)->next;
-        (*b)->next = (*a);
-        (*a)->next = temp;
-        unlock(&(*a)->mutex);
-        unlock(&(*b)->mutex);
+    if(a == prev){
+        pthread_mutex_lock(&a->mutex);
+        pthread_mutex_lock(&b->mutex);
+        temp = b->next;
+        b->next = a;
+        a->next = temp;
+        pthread_mutex_lock(&(*head)->mutex);
+        (*head) = b;
+        pthread_mutex_unlock(&a->mutex);
+        pthread_mutex_unlock(&b->mutex);
+        pthread_mutex_unlock(&(*head)->mutex);
         return;
     }
 
-    lock(&(*prev)->mutex);
-    printf("prev locked to sort\n");
-    lock(&(*a)->mutex);
-    printf("a locked to sort\n");
-    lock(&(*b)->mutex);
-    printf("b unlocked to sort\n");
-
-    temp = (*b)->next;
-    (*prev)->next = (*b);
-    (*b)->next = (*a);
-    (*a)->next = temp;
-
-    unlock(&(*prev)->mutex);
-    printf("prev unlocked to sort\n");
-    unlock(&(*a)->mutex);
-    printf("a unlocked to sort\n");
-    unlock(&(*b)->mutex);
-    printf("b unlocked to sort\n");
+    pthread_mutex_lock(&prev->mutex);
+    pthread_mutex_lock(&a->mutex);
+    pthread_mutex_lock(&b->mutex);
+    temp = b->next;
+    prev->next = b;
+    b->next = a;
+    a->next = temp;
+    pthread_mutex_unlock(&prev->mutex);
+    pthread_mutex_unlock(&a->mutex);
+    pthread_mutex_unlock(&b->mutex);
 }
 
 void sortList(List **head){
-    List *prev=NULL;
-    if((*head)->next==NULL){
-        return;
-    }
-    for(List* i = (*head); i != NULL; i = i->next){
-        prev = (*head);
+    List *prev, *i, *j;
+    prev=NULL;
+    j=NULL;
+    pthread_mutex_lock(&(*head)->mutex);
+    i=(*head);
+    pthread_mutex_unlock(&(*head)->mutex);
 
-        for(List* j = (*head); j != i; j = j->next){
-            if(j==NULL || j->next == NULL){
-                break;
-            }
-            if(strcmp(j->buf, j->next->buf) > 0){
-                swap(&prev, &j, &j->next);
+    while(i){
+        pthread_mutex_lock(&(*head)->mutex);
+        prev=(*head);
+        j=(*head);
+        pthread_mutex_unlock(&(*head)->mutex);
+
+        while(j != i && j!=NULL && j->next!=NULL){
+            if(strcmp(j->buf, j->next->buf)>0){
+                swap(head, prev, j, j->next);
             }
             prev = j;
+            j = j->next;
         }
+
+        i=i->next;
     }
 }

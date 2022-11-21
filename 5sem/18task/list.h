@@ -1,12 +1,11 @@
-#ifndef OS17_LIST_H
-#define OS17_LIST_H
+#ifndef OS18_LIST_H
+#define OS18_LIST_H
 
-#endif //OS17_LIST_H
-
-#define MAX_STR_LEN 400
-#define MAX_BUF 80
+#endif //OS18_LIST_H
 
 #include <pthread.h>
+#define MAX_STR_LEN 400
+#define MAX_BUF 80
 
 typedef struct List{
     char *buf;
@@ -14,8 +13,8 @@ typedef struct List{
     pthread_mutex_t mutex;
 } List;
 
-int init(List **head, char *str);
+int init(char *str, List **head);
 int push(char *str, List **head);
 int pop(List **head);
-int printList(List **head);
+void printList(List **head);
 void sortList(List **head);

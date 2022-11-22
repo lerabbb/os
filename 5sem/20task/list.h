@@ -13,8 +13,8 @@ typedef struct List{
     pthread_rwlock_t rwlock;
 } List;
 
-int init(char *str, List **head);
-int push(char *str, List **head);
-int pop(List **head);
-void printList(List **head);
-void sortList(List **head);
+int init(pthread_rwlock_t *mainRwlock, char *str, List **head);
+int push(pthread_rwlock_t *mainRwlock, char *str, List **head);
+int pop(pthread_rwlock_t *mainRwlock, List **head);
+void printList(pthread_rwlock_t *mainRwlock, List **head);
+void sortList(pthread_rwlock_t *mainRwlock, List **head);

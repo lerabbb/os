@@ -3,7 +3,8 @@
 #include <string.h>
 #include <stdio.h>
 
-int init(char *str, List **head){
+int init(pthread_rwlock_t *mainRwlock, char *str, List **head){
+    pthread_rwlock_rdlock(mainRwlock);
     (*head) = (List*)malloc(sizeof(List));
 
     if(pthread_rwlock_init(&(*head)->rwlock, NULL)){
@@ -13,45 +14,51 @@ int init(char *str, List **head){
     (*head)->buf = (char*)malloc(sizeof(char)*MAX_BUF);
     strcpy((*head)->buf, str);
     (*head)->next=NULL;
+    pthread_rwlock_unlock(mainRwlock);
     return 0;
 }
 
-int push(char *str, List **head){
+int push(pthread_rwlock_t *mainRwlock, char *str, List **head){
     List *temp = (List*) malloc(sizeof(List));
 
-    if(pthread_rwlock_init(&(*head)->rwlock, NULL)){
+    if(pthread_rwlock_init(&temp->rwlock, NULL)){
         return 1;
     }
 
     temp->buf = (char*)malloc(sizeof(char)*MAX_BUF);
     strcpy(temp->buf, str);
 
-    pthread_rwlock_wrlock(&(*head)->rwlock);
+    pthread_rwlock_wrlock(mainRwlock);
     temp->next = (*head);
     (*head) = temp;
-    pthread_rwlock_unlock(&(*head)->next->rwlock);
+    pthread_rwlock_unlock(mainRwlock);
     return 0;
 }
 
-int pop(List **head){
+int pop(pthread_rwlock_t *mainRwlock, List **head){
     List *temp =NULL;
+
+    pthread_rwlock_wrlock(mainRwlock);
     if((*head) == NULL){
         return 1;
     }
-
     temp = (*head);
     (*head)=(*head)->next;
-    pthread_rwlock_destroy(&temp->rwlock);
+    pthread_rwlock_unlock(mainRwlock);
+
+    if(pthread_rwlock_destroy(&temp->rwlock)){
+        return 1;
+    }
     free(temp->buf);
     free(temp);
     return 0;
 }
 
-void printList(List **head){
+void printList(pthread_rwlock_t *mainRwlock, List **head){
     List *temp = NULL;
-    pthread_rwlock_rdlock(&(*head)->rwlock);
+    pthread_rwlock_rdlock(mainRwlock);
     temp = (*head);
-    pthread_rwlock_unlock(&(*head)->rwlock);
+    pthread_rwlock_unlock(mainRwlock);
 
     printf("List: ");
     while(temp){
@@ -61,7 +68,7 @@ void printList(List **head){
     printf("\n");
 }
 
-void swap(List **head, List *prev, List *a, List *b){
+void swap(pthread_rwlock_t *mainRwlock, List **head, List *prev, List *a, List *b){
     List *temp = NULL;
 
     if(a == prev){
@@ -70,7 +77,9 @@ void swap(List **head, List *prev, List *a, List *b){
         temp = b->next;
         b->next = a;
         a->next = temp;
+        pthread_rwlock_wrlock(mainRwlock);
         (*head) = b;
+        pthread_rwlock_unlock(mainRwlock);
         pthread_rwlock_unlock(&a->rwlock);
         pthread_rwlock_unlock(&b->rwlock);
         return;
@@ -88,23 +97,23 @@ void swap(List **head, List *prev, List *a, List *b){
     pthread_rwlock_unlock(&b->rwlock);
 }
 
-void sortList(List **head){
+void sortList(pthread_rwlock_t *mainRwlock, List **head){
     List *prev, *i, *j;
     prev=NULL;
     j=NULL;
-    pthread_rwlock_rdlock(&(*head)->rwlock);
+    pthread_rwlock_rdlock(mainRwlock);
     i=(*head);
-    pthread_rwlock_unlock(&(*head)->rwlock);
+    pthread_rwlock_unlock(mainRwlock);
 
     while(i){
-        pthread_rwlock_rdlock(&(*head)->rwlock);
+        pthread_rwlock_rdlock(mainRwlock);
         prev=(*head);
         j=(*head);
-        pthread_rwlock_unlock(&(*head)->rwlock);
+        pthread_rwlock_unlock(mainRwlock);
 
         while(j != i && j!=NULL && j->next!=NULL){
             if(strcmp(j->buf, j->next->buf)>0){
-                swap(head, prev, j, j->next);
+                swap(mainRwlock, head, prev, j, j->next);
             }
             prev = j;
             j = j->next;

@@ -8,12 +8,12 @@
 #define PERIOD 5000000
 
 List *head=NULL;
-pthread_mutex_t mutex;
+pthread_mutex_t mainMutex;
 
 void *child_func(void *args){
     while(1) {
         usleep(PERIOD);
-        sortList(&head);
+        sortList(&mainMutex, &head);
     }
 }
 
@@ -31,7 +31,7 @@ void parent_func(){
         return;
     }
     buf[strcspn(buf, "\n")] = 0;
-    if(init(buf, &head)){
+    if(init(&mainMutex, buf, &head)){
         perror("Fail while initializing list");
         free(buf);
         return;
@@ -47,12 +47,12 @@ void parent_func(){
         buf[strcspn(buf, "\n")] = 0;
         if(strcmp(buf, "")==0) {
             printf("\n");
-            printList(&head);
+            printList(&mainMutex, &head);
         }
         else {
             strcat(buf, "\0");
 
-            if(push(buf, &head)){
+            if(push(&mainMutex, buf, &head)){
                 perror("Fail while pushing node");
                 break;
             }
@@ -63,6 +63,10 @@ void parent_func(){
 
 int main() {
     pthread_t tid;
+    if(pthread_mutex_init(&mainMutex, NULL)){
+        perror("Fail while initializing main mutex");
+        return 1;
+    }
     if(pthread_create(&tid, NULL, child_func, NULL)){
         perror("thread not created");
         return -1;
@@ -75,13 +79,20 @@ int main() {
         return -1;
     }
 
-    printList(&head);
+    printList(&mainMutex, &head);
     while(head){
-        if(pop(&head)){
+        if(pop(&mainMutex, &head)){
             perror("fail while list clearing");
             return -1;
         }
     }
 
+    if(pthread_mutex_destroy(&mainMutex)){
+        perror("Fail while destroying mutex");
+        return 1;
+    }
+
     return 0;
 }
+
+

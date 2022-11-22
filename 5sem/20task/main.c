@@ -8,11 +8,12 @@
 #define PERIOD 5000000
 
 List *head=NULL;
+pthread_rwlock_t mainRwlock;
 
 void *child_func(void *args){
     while(1) {
         usleep(PERIOD);
-        sortList(&head);
+        sortList(&mainRwlock, &head);
     }
 }
 
@@ -30,7 +31,7 @@ void parent_func(){
         return;
     }
     buf[strcspn(buf, "\n")] = 0;
-    if(init(buf, &head)){
+    if(init(&mainRwlock, buf, &head)){
         perror("Fail while initializing list");
         free(buf);
         return;
@@ -46,12 +47,12 @@ void parent_func(){
         buf[strcspn(buf, "\n")] = 0;
         if(strcmp(buf, "")==0) {
             printf("\n");
-            printList(&head);
+            printList(&mainRwlock, &head);
         }
         else {
             strcat(buf, "\0");
 
-            if(push(buf, &head)){
+            if(push(&mainRwlock, buf, &head)){
                 perror("Fail while pushing node");
                 break;
             }
@@ -62,6 +63,12 @@ void parent_func(){
 
 int main() {
     pthread_t tid;
+
+    if(pthread_rwlock_init(&mainRwlock, NULL)){
+        perror("Fail while initializing rwlock");
+        return 1;
+    }
+
     if(pthread_create(&tid, NULL, child_func, NULL)){
         perror("thread not created");
         return -1;
@@ -74,12 +81,17 @@ int main() {
         return -1;
     }
 
-    printList(&head);
+    printList(&mainRwlock, &head);
     while(head){
-        if(pop(&head)){
+        if(pop(&mainRwlock, &head)){
             perror("fail while list clearing");
             return -1;
         }
+    }
+
+    if(pthread_rwlock_destroy(&mainRwlock)){
+        perror("Fail while destroying rwlock");
+        return 1;
     }
 
     return 0;

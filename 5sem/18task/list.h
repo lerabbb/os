@@ -13,8 +13,8 @@ typedef struct List{
     pthread_mutex_t mutex;
 } List;
 
-int init(char *str, List **head);
-int push(char *str, List **head);
-int pop(List **head);
-void printList(List **head);
-void sortList(List **head);
+int init(pthread_mutex_t *mainMutex, char *str, List **head);
+int push(pthread_mutex_t *mainMutex, char *str, List **head);
+int pop(pthread_mutex_t *mainMutex, List **head);
+void printList(pthread_mutex_t *mainMutex, List **head);
+void sortList(pthread_mutex_t *mainMutex, List **head);

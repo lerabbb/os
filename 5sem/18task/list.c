@@ -72,12 +72,12 @@ void swap(pthread_mutex_t *mainMutex, List **head, List *prev, List *a, List *b)
     List *temp = NULL;
 
     if(a == prev){
-        pthread_mutex_lock(&a->mutex);
+        pthread_mutex_lock(mainMutex);
+	pthread_mutex_lock(&a->mutex);
         pthread_mutex_lock(&b->mutex);
         temp = b->next;
         b->next = a;
         a->next = temp;
-        pthread_mutex_lock(mainMutex);
         (*head) = b;
         pthread_mutex_unlock(mainMutex);
         pthread_mutex_unlock(&a->mutex);

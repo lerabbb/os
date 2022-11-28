@@ -75,12 +75,12 @@ void swap(pthread_rwlock_t *mainRwlock, List **head, List *prev, List *a, List *
     List *temp = NULL;
 
     if(a == prev){
-        pthread_rwlock_wrlock(&a->rwlock);
+        pthread_rwlock_wrlock(mainRwlock);
+	pthread_rwlock_wrlock(&a->rwlock);
         pthread_rwlock_wrlock(&b->rwlock);
         temp = b->next;
         b->next = a;
         a->next = temp;
-        pthread_rwlock_wrlock(mainRwlock);
         (*head) = b;
         pthread_rwlock_unlock(mainRwlock);
         pthread_rwlock_unlock(&a->rwlock);

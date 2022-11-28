@@ -6,14 +6,14 @@
 #include "list.h"
 
 #define PERIOD 5000000
+#define THREAD_NUM 4
 
-List *head=NULL;
-pthread_mutex_t mainMutex;
+List *list=NULL;
 
 void *child_func(void *args){
     while(1) {
         usleep(PERIOD);
-        sortList(&mainMutex, &head);
+        sortList(&list);
     }
 }
 
@@ -31,7 +31,7 @@ void parent_func(){
         return;
     }
     buf[strcspn(buf, "\n")] = 0;
-    if(init(&mainMutex, buf, &head)){
+    if(init( buf, &list)){
         perror("Fail while initializing list");
         free(buf);
         return;
@@ -47,12 +47,12 @@ void parent_func(){
         buf[strcspn(buf, "\n")] = 0;
         if(strcmp(buf, "")==0) {
             printf("\n");
-            printList(&mainMutex, &head);
+            printList(&list);
         }
         else {
             strcat(buf, "\0");
 
-            if(push(&mainMutex, buf, &head)){
+            if(push(buf, &list)){
                 perror("Fail while pushing node");
                 break;
             }
@@ -62,36 +62,33 @@ void parent_func(){
 }
 
 int main() {
-    pthread_t tid;
-    if(pthread_mutex_init(&mainMutex, NULL)){
-        perror("Fail while initializing main mutex");
-        return 1;
-    }
-    if(pthread_create(&tid, NULL, child_func, NULL)){
-        perror("thread not created");
+    pthread_t tid[THREAD_NUM];
+    list = createList();
+    if(list == NULL){
+        perror("Fail while creating list");
         return -1;
+    }
+    for(int i=0; i < THREAD_NUM; i++){
+        if(pthread_create(&tid[i], NULL, child_func, NULL)){
+            perror("thread not created");
+            return -1;
+        }
     }
     printf("Enter \'end\' to exit\n");
     parent_func();
 
-    if(pthread_cancel(tid)){
-        perror("child thread not cancelled");
-        return -1;
-    }
-
-    printList(&mainMutex, &head);
-    while(head){
-        if(pop(&mainMutex, &head)){
-            perror("fail while list clearing");
+    for(int i=0; i<THREAD_NUM; i++) {
+        if (pthread_cancel(tid[i])) {
+            perror("child thread not cancelled");
             return -1;
         }
     }
 
-    if(pthread_mutex_destroy(&mainMutex)){
-        perror("Fail while destroying mutex");
-        return 1;
+    printList(&list);
+    if(destroyList(&list)){
+        perror("Fail while destroying list");
+        return -1;
     }
-
     return 0;
 }
 

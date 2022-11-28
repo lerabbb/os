@@ -7,14 +7,22 @@
 #define MAX_STR_LEN 400
 #define MAX_BUF 80
 
-typedef struct List{
+typedef struct Node{
     char *buf;
-    struct List *next;
+    struct Node *next;
     pthread_rwlock_t rwlock;
+} Node;
+
+typedef struct List{
+    Node *head;
+    pthread_rwlock_t mainRwlock;
 } List;
 
-int init(pthread_rwlock_t *mainRwlock, char *str, List **head);
-int push(pthread_rwlock_t *mainRwlock, char *str, List **head);
-int pop(pthread_rwlock_t *mainRwlock, List **head);
-void printList(pthread_rwlock_t *mainRwlock, List **head);
-void sortList(pthread_rwlock_t *mainRwlock, List **head);
+List* createList();
+int destroyList(List **list);
+
+int init(char *str, List **list);
+int push(char *str, List **list);
+int pop(List **list);
+void printList(List **list);
+void sortList(List **list);

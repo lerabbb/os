@@ -21,7 +21,7 @@ typedef struct List{
 List* createList();
 int destroyList(List **list);
 
-int init(char *str, List **list);
+int init(List **list);
 int push(char *str, List **list);
 int pop(List **list);
 void printList(List **list);

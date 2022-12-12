@@ -2,9 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <unistd.h>
 
-int init(char *str, List **list){
+int init(List **list){
     pthread_rwlock_wrlock(&(*list)->mainRwlock);
     (*list)->head = (Node*)malloc(sizeof(Node));
 
@@ -13,8 +12,7 @@ int init(char *str, List **list){
     }
 
     (*list)->head->buf = (char*)malloc(sizeof(char)*MAX_BUF);
-    strcpy((*list)->head->buf, str);
-    (*list)->head->next=NULL;
+    (*list)->head->next = NULL;
     pthread_rwlock_unlock(&(*list)->mainRwlock);
     return 0;
 }
@@ -30,8 +28,8 @@ int push(char *str, List **list){
     strcpy(temp->buf, str);
 
     pthread_rwlock_wrlock(&(*list)->mainRwlock);
-    temp->next = (*list)->head;
-    (*list)->head = temp;
+    temp->next = (*list)->head->next;
+    (*list)->head->next = temp;
     pthread_rwlock_unlock(&(*list)->mainRwlock);
     return 0;
 }
@@ -58,69 +56,62 @@ int pop(List **list){
 void printList(List **list){
     Node *temp = NULL;
     pthread_rwlock_rdlock(&(*list)->mainRwlock);
-    temp = (*list)->head;
+    temp = (*list)->head->next;
     pthread_rwlock_unlock(&(*list)->mainRwlock);
 
     printf("List: ");
+    pthread_rwlock_rdlock(&temp->rwlock);
     while(temp){
         printf("\'%s\' -> ", temp->buf);
-        temp=temp->next;
+        if(temp->next){
+            pthread_rwlock_rdlock(&temp->next->rwlock);
+        }
+        pthread_rwlock_unlock(&temp->rwlock);
+        temp = temp->next;
     }
     printf("\n");
 }
 
-void swap(List **list, Node *prev, Node *a, Node *b){
-    Node *temp = NULL;
-
-    if(a == prev){
-        pthread_rwlock_wrlock(&(*list)->mainRwlock);
-        pthread_rwlock_wrlock(&a->rwlock);
-        pthread_rwlock_wrlock(&b->rwlock);
-        temp = b->next;
-        b->next = a;
-        a->next = temp;
-        (*list)->head = b;
-        pthread_rwlock_unlock(&(*list)->mainRwlock);
-        pthread_rwlock_unlock(&a->rwlock);
-        pthread_rwlock_unlock(&b->rwlock);
-        return;
-    }
-
-    pthread_rwlock_wrlock(&prev->rwlock);
-    pthread_rwlock_wrlock(&a->rwlock);
-    pthread_rwlock_wrlock(&b->rwlock);
-    temp = b->next;
-    prev->next = b;
-    b->next = a;
-    a->next = temp;
-    pthread_rwlock_unlock(&prev->rwlock);
-    pthread_rwlock_unlock(&a->rwlock);
-    pthread_rwlock_unlock(&b->rwlock);
+void swap(Node **prev, Node **a, Node **b){
+    (*prev)->next = (*b);
+    (*a)->next = (*b)->next;
+    (*b)->next = (*a);
+    (*a) = (*b);
+    (*b) = (*a)->next;
 }
 
 void sortList(List **list){
-    Node *i, *j, *prev;
-    j = NULL;
+    int flag = 1;
+    Node *prev, *i, *j;
     prev = NULL;
-    pthread_rwlock_rdlock(&(*list)->mainRwlock);
-    i = (*list)->head;
-    pthread_rwlock_unlock(&(*list)->mainRwlock);
+    j = NULL;
+    i = NULL;
 
-    while(i){
+    while(flag){
+        flag = 0;
         pthread_rwlock_rdlock(&(*list)->mainRwlock);
         prev = (*list)->head;
-        j = (*list)->head;
         pthread_rwlock_unlock(&(*list)->mainRwlock);
 
-        while(j != i && j!=NULL && j->next!=NULL){
-            if(strcmp(j->buf, j->next->buf)>0){
-                swap(list,  prev, j, j->next);
+        pthread_rwlock_wrlock(&prev->rwlock);
+        i = (*list)->head->next;
+        if(i){
+            pthread_rwlock_wrlock(&i->rwlock);
+            j = i->next;
+            while(j){
+                pthread_rwlock_wrlock(&j->rwlock);
+                if(strcmp(i->buf, j->buf) > 0){
+                    flag = 1;
+                    swap(&prev, &i, &j);
+                }
+                pthread_rwlock_unlock(&prev->rwlock);
+                prev = i;
+                i = j;
+                j = j->next;
             }
-            prev = j;
-            j = j->next;
+            pthread_rwlock_unlock(&i->rwlock);
         }
-
-        i=i->next;
+        pthread_rwlock_unlock(&prev->rwlock);
     }
 }
 
@@ -129,6 +120,8 @@ List* createList(){
     if(pthread_rwlock_init(&list->mainRwlock, NULL)){
         return NULL;
     }
+    init(&list);
+
     return list;
 }
 int destroyList(List **list){
@@ -140,7 +133,7 @@ int destroyList(List **list){
     }
 
     if(pthread_rwlock_destroy(&(*list)->mainRwlock)){
-        perror("Fail while destroying main rwlock");
+        perror("Fail while destroying rwlock");
         return 1;
     }
     return 0;

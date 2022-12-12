@@ -2,10 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <unistd.h>
 
-Node *prev = NULL;
-int init(char *str, List **list){
+int init(List **list){
     pthread_mutex_lock(&(*list)->mainMutex);
     (*list)->head = (Node*)malloc(sizeof(Node));
 
@@ -14,8 +12,7 @@ int init(char *str, List **list){
     }
 
     (*list)->head->buf = (char*)malloc(sizeof(char)*MAX_BUF);
-    strcpy((*list)->head->buf, str);
-    (*list)->head->next=NULL;
+    (*list)->head->next = NULL;
     pthread_mutex_unlock(&(*list)->mainMutex);
     return 0;
 }
@@ -31,8 +28,8 @@ int push(char *str, List **list){
     strcpy(temp->buf, str);
 
     pthread_mutex_lock(&(*list)->mainMutex);
-    temp->next = (*list)->head;
-    (*list)->head = temp;
+    temp->next = (*list)->head->next;
+    (*list)->head->next = temp;
     pthread_mutex_unlock(&(*list)->mainMutex);
     return 0;
 }
@@ -59,68 +56,62 @@ int pop(List **list){
 void printList(List **list){
     Node *temp = NULL;
     pthread_mutex_lock(&(*list)->mainMutex);
-    temp = (*list)->head;
+    temp = (*list)->head->next;
     pthread_mutex_unlock(&(*list)->mainMutex);
 
     printf("List: ");
+    pthread_mutex_lock(&temp->mutex);
     while(temp){
         printf("\'%s\' -> ", temp->buf);
-        temp=temp->next;
+        if(temp->next){
+            pthread_mutex_lock(&temp->next->mutex);
+        }
+        pthread_mutex_unlock(&temp->mutex);
+        temp = temp->next;
     }
     printf("\n");
 }
 
-void swap(List **list, Node *prev, Node *a, Node *b){
-    Node *temp = NULL;
-
-    if(a == prev){
-        pthread_mutex_lock(&(*list)->mainMutex);
-        pthread_mutex_lock(&a->mutex);
-        pthread_mutex_lock(&b->mutex);
-        temp = b->next;
-        b->next = a;
-        a->next = temp;
-        (*list)->head = b;
-        pthread_mutex_unlock(&(*list)->mainMutex);
-        pthread_mutex_unlock(&a->mutex);
-        pthread_mutex_unlock(&b->mutex);
-        return;
-    }
-
-    pthread_mutex_lock(&prev->mutex);
-    pthread_mutex_lock(&a->mutex);
-    pthread_mutex_lock(&b->mutex);
-    temp = b->next;
-    prev->next = b;
-    b->next = a;
-    a->next = temp;
-    pthread_mutex_unlock(&prev->mutex);
-    pthread_mutex_unlock(&a->mutex);
-    pthread_mutex_unlock(&b->mutex);
+void swap(Node **prev, Node **a, Node **b){
+    (*prev)->next = (*b);
+    (*a)->next = (*b)->next;
+    (*b)->next = (*a);
+    (*a) = (*b);
+    (*b) = (*a)->next;
 }
 
 void sortList(List **list){
-    Node *i, *j;
+    int flag = 1;
+    Node *prev, *i, *j;
+    prev = NULL;
     j = NULL;
-    pthread_mutex_lock(&(*list)->mainMutex);
-    i = (*list)->head;
-    pthread_mutex_unlock(&(*list)->mainMutex);
+    i = NULL;
 
-    while(i){
+    while(flag){
+        flag = 0;
         pthread_mutex_lock(&(*list)->mainMutex);
         prev = (*list)->head;
-        j = (*list)->head;
         pthread_mutex_unlock(&(*list)->mainMutex);
 
-        while(j != i && j!=NULL && j->next!=NULL){
-            if(strcmp(j->buf, j->next->buf)>0){
-                swap(list,  prev, j, j->next);
-	    }
-            prev = j;
-            j = j->next;
+        pthread_mutex_lock(&prev->mutex);
+        i = (*list)->head->next;
+        if(i){
+            pthread_mutex_lock(&i->mutex);
+            j = i->next;
+            while(j){
+                pthread_mutex_lock(&j->mutex);
+                if(strcmp(i->buf, j->buf) > 0){
+                    flag = 1;
+                    swap(&prev, &i, &j);
+                }
+                pthread_mutex_unlock(&prev->mutex);
+                prev = i;
+                i = j;
+                j = j->next;
+            }
+            pthread_mutex_unlock(&i->mutex);
         }
-
-        i=i->next;
+        pthread_mutex_unlock(&prev->mutex);
     }
 }
 
@@ -129,6 +120,8 @@ List* createList(){
     if(pthread_mutex_init(&list->mainMutex, NULL)){
         return NULL;
     }
+    init(&list);
+
     return list;
 }
 int destroyList(List **list){

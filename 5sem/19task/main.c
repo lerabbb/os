@@ -11,6 +11,7 @@
 List *list=NULL;
 
 void *child_func(void *args){
+    pthread_t tid = pthread_self();
     while(1) {
         usleep(PERIOD);
         sortList(&list);
@@ -19,23 +20,6 @@ void *child_func(void *args){
 
 void parent_func(){
     char* buf = (char*) malloc(sizeof(char)*MAX_STR_LEN);
-
-    //initialize list
-    if(fgets(buf, MAX_BUF, stdin) == NULL){
-        perror("Fail while reading text");
-        free(buf);
-        return;
-    }
-    if(strcmp(buf, "end\n")==0){
-        free(buf);
-        return;
-    }
-    buf[strcspn(buf, "\n")] = 0;
-    if(init( buf, &list)){
-        perror("Fail while initializing list");
-        free(buf);
-        return;
-    }
 
     while(1){
         if(fgets(buf, MAX_BUF, stdin) == NULL){
@@ -91,5 +75,3 @@ int main() {
     }
     return 0;
 }
-
-

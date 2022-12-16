@@ -1,3 +1,9 @@
+#include <stdio.h>
+#include <pthread.h>
+#include <stdlib.h>
+#define NUM_THREADS 4
+#define STR_NUM 30
+#define MAX_LEN 100
 
 typedef struct Args{
         char str[STR_NUM][MAX_LEN];
@@ -7,6 +13,7 @@ void *task(void *args){
         Args *arg = (Args*) args;
 
         for(int i=0; i<STR_NUM; i++){
+		usleep(200000);
                 printf("%s", arg->str[i]);
         }
 }
@@ -34,7 +41,6 @@ int main(int argc, char **argv){
                         perror("ERROR: thread not joined");
                         return -1;
                 }
-                printf("thread %d joined\n", i);
         }
         return 0;
 }

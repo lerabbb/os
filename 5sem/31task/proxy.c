@@ -225,8 +225,20 @@ int connect_to_host(http_request_t request){
     web_server.ai_socktype = SOCK_STREAM;
     web_server.ai_protocol = 0;
 
-    printf("request path %s\n", request.path);
-    s = getaddrinfo(request.path, NULL, &web_server, &result);
+    char *path = (char*)malloc(sizeof(char)*strlen(request.path));
+    strcpy(path, request.path);
+
+    if(strstr(path, "http://")){
+          path += strlen("http://");
+    }
+    for(int i=0; path[i]; i++){
+	if(path[i] == '/'){
+		path[i] = '\0';
+		break;
+	}
+    }
+
+    s = getaddrinfo(path, NULL, &web_server, &result);
     if(s != 0){
         printf("Error: connection to web server failed with error code = %d\n", s);
         return -1;

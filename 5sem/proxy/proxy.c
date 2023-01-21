@@ -77,6 +77,7 @@ int find_in_cache(const cache_t *cache, int cache_size, int clientIndex, const c
 }
 
 int connect_to_host(char *host, in_port_t port){
+    printf("host %s\n", host);
     struct hostent *hp = gethostbyname(host);
     if(hp == NULL){
         perror("Fail while calling gethostbyname");
@@ -87,7 +88,7 @@ int connect_to_host(char *host, in_port_t port){
     memcpy(&addr.sin_addr, hp->h_addr, hp->h_length);
     addr.sin_port = htons(port);
     addr.sin_family = AF_INET;
-    
+
     int sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
     if(sock == -1){
         perror("socket");
@@ -95,7 +96,7 @@ int connect_to_host(char *host, in_port_t port){
     }
     int on = 1;
     setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (const char *)&on, sizeof(int));
-    
+
     if(connect(sock, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) == -1){
         perror("Fail while connecting to host");
         return -1;
@@ -131,6 +132,18 @@ int send_request(int i, const url_t *url) {
     }
     return 0;
 }
+
+void disconnect_client(int i){
+    printf("client %d disconnected", i);
+    close(clients[i]);
+    close(servers[i]);
+    clients[i] = -1;
+    servers[i] = -1;
+    cache_to_client[i] = -1;
+    bytes_sent[i] = 0;
+}
+
+
 
 int read_from_server(cache_t *cache, int cache_size, int i) {
     int offset = 0;
@@ -218,6 +231,12 @@ int main(int argc, char **argv) {
                     perror("Fail while reading from client");
                     exit(EXIT_FAILURE);
                 }
+                if(strcmp(url_buf, "/exit") == 0){
+                    clients_num--;
+                    disconnect_client(i);
+                    continue;
+                }
+
                 url_buf[bytes_read] = '\0';
                 url_t * url = parse_url(url_buf);
                 if (url == NULL){
@@ -263,42 +282,45 @@ int main(int argc, char **argv) {
 }
 
 
-url_t * parse_url(char *url_buf) {
+url_t * parse_url(char *urlBuffer) {
     url_t * url = (url_t *) malloc(sizeof(url_t));
     url->path = NULL;
     url->host = NULL;
     url->port = 80;
-    int url_size = strlen(url_buf);
-    int start = 0;
-    for (int i = 0; i < url_size; i++){
-        if (url_buf[i] == ':'){
-            if (start){
+    size_t urlBufferSize = strlen(urlBuffer);
+    int startPortIndex = 0;
+    for (size_t strIndex = 0; strIndex < urlBufferSize; strIndex++){
+        if (urlBuffer[strIndex] == ':'){
+            if (startPortIndex){
                 free_url(url);
                 return NULL;
             }
-            start = i;
+            startPortIndex = strIndex;
             char port[PORT_LEN + 1] = {0};
-            int port_pos = i + 1;
+            size_t portStrIndex = strIndex + 1;
             int portIndex = 0;
-            while (portIndex <  PORT_LEN && port_pos < url_size && isdigit(url_buf[port_pos])){
-                port[portIndex++] = url_buf[port_pos];
-                port_pos++;
+            while (portIndex <  PORT_LEN && portStrIndex < urlBufferSize && isdigit(urlBuffer[portStrIndex])){
+                port[portIndex++] = urlBuffer[portStrIndex];
+                portStrIndex++;
             }
             url->port = atoi(port);
         }
-        if (url_buf[i] == '/') {
-            if (i + 1 == url_size) {
-                url_buf[i] = '\0';
+        if (urlBuffer[strIndex] == '/') {
+            if (strIndex + 1 == urlBufferSize) {
+                urlBuffer[strIndex] = '\0';
                 break;
             }
-            url->host = (char *) malloc(sizeof(char) * (start + 1));
-            url->path = (char *) malloc(sizeof(char) * (url_size - i));
-            strncpy(url->host, url_buf, start ? start : i);
-            strncpy(url->path, &(url_buf[i + 1]), url_size - i - 1);
+            url->host = (char *) malloc(sizeof(char) * (startPortIndex + 1));
+            url->path = (char *) malloc(sizeof(char) * (urlBufferSize - strIndex));
+            strncpy(url->host, urlBuffer, startPortIndex  ? startPortIndex : strIndex);
+            strncpy(url->path, &(urlBuffer[strIndex + 1]), urlBufferSize - strIndex - 1);
+            printf("host = %s\n", url->host);
+            printf("path = %s\n", url->path);
             break;
         }
     }
     return url;
+
 }
 void free_url(url_t *pUrl) {
     free(pUrl->path);
@@ -308,7 +330,7 @@ void free_url(url_t *pUrl) {
 void send_err_to_client(int client, char *msg){
     int n = write(client, msg, strlen(msg));
     if(n < 0){
-        perror("fail while sending error to client");
-        exit(EXIT_FAILURE);
+      perror("fail while sending error to client");
+   //   exit(EXIT_FAILURE);
     }
 }
